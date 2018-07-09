@@ -1,0 +1,26 @@
+*** ../squashfs/Kconfig	2018-07-09 15:40:28.000000000 -0700
+--- squashfs/Kconfig	2018-07-09 15:50:58.000000000 -0700
+***************
+*** 208,210 ****
+--- 208,228 ----
+  
+  	  Note there must be at least one cached fragment.  Anything
+  	  much more than three will probably not make much difference.
++ 
++ config SQUASHFS_SSQ
++         bool "Enable support for secure squashfs and ssq mount option"
++         depends on SQUASHFS_4K_DEVBLK_SIZE
++         help
++           Enable support for Secure SquashFS (SSQ) image verification when
++           mounted with the "ssq=" option. If not enabled, SSQ images will still
++           mount but no verification will take place.
++ 
++           If unsure, say N.
++ 
++ config SQUASHFS_SSQ_PANIC
++         boot "Panic on Secure Squashfs verify error"
++         depends on SQUASHFS_SECURE
++         help
++           Normally a SSQ verification failure will result in read error. If
++           this is set, trigger a kernel panic instead. This is the desired
++           behavior when mounting SSQ as part of a chain-of-trust.

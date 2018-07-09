@@ -1,0 +1,53 @@
+*** ../squashfs/super.c	2018-07-09 15:43:00.000000000 -0700
+--- squashfs/super.c	2018-07-09 15:47:51.000000000 -0700
+***************
+*** 46,51 ****
+--- 46,55 ----
+  #include "decompressor.h"
+  #include "xattr.h"
+  
++ #ifdef CONFIG_SQUASHFS_SSQ
++ #include "ssq.h"
++ #endif
++ 
+  static struct file_system_type squashfs_fs_type;
+  static const struct super_operations squashfs_super_ops;
+  
+***************
+*** 201,206 ****
+--- 205,215 ----
+  
+  	err = -ENOMEM;
+  
++ #ifdef CONFIG_SQUASHFS_SSQ
++ 	// check for ssq= mount option 
++ 	if (!ssq_fill_super(sb, data, silent)) goto failed_mount; 
++ #endif
++ 
+  	msblk->block_cache = squashfs_cache_init("metadata",
+  			SQUASHFS_CACHED_BLKS, SQUASHFS_METADATA_SIZE);
+  	if (msblk->block_cache == NULL)
+***************
+*** 343,348 ****
+--- 352,360 ----
+  	kfree(msblk->fragment_index);
+  	kfree(msblk->id_table);
+  	kfree(msblk->xattr_id_table);
++ #ifdef CONFIG_SQUASHFS_SSQ
++ 	ssq_free(sb);
++ #endif
+  	kfree(sb->s_fs_info);
+  	sb->s_fs_info = NULL;
+  	kfree(sblk);
+***************
+*** 393,398 ****
+--- 405,413 ----
+  		kfree(sbi->inode_lookup_table);
+  		kfree(sbi->xattr_id_table);
+  		kfree(sb->s_fs_info);
++ #ifdef CONFIG_SQUASHFS_SSQ
++ 		ssq_free(sb);
++ #endif
+  		sb->s_fs_info = NULL;
+  	}
+  }

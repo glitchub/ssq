@@ -1,0 +1,27 @@
+*** ../squashfs/block.c	2018-07-09 15:43:00.000000000 -0700
+--- squashfs/block.c	2018-07-09 13:19:56.000000000 -0700
+***************
+*** 38,43 ****
+--- 38,47 ----
+  #include "decompressor.h"
+  #include "page_actor.h"
+  
++ #ifdef CONFIG_SQUASHFS_SSQ
++ #include "ssq.h"
++ #endif
++ 
+  /*
+   * Read the metadata block length, this is stored in the first two
+   * bytes of the metadata block.
+***************
+*** 163,168 ****
+--- 167,175 ----
+  		wait_on_buffer(bh[i]);
+  		if (!buffer_uptodate(bh[i]))
+  			goto block_release;
++ #ifdef CONFIG_SQUASHFS_SSQ
++ 		if (!ssq_test_bh(sb, bh[i])) goto block_release;
++ #endif
+  	}
+  
+  	if (compressed) {

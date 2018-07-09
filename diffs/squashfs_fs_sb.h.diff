@@ -1,0 +1,13 @@
+*** ../squashfs/squashfs_fs_sb.h	2018-07-09 15:43:00.000000000 -0700
+--- squashfs/squashfs_fs_sb.h	2018-07-09 15:45:44.000000000 -0700
+***************
+*** 76,80 ****
+--- 76,83 ----
+  	long long				bytes_used;
+  	unsigned int				inodes;
+  	int					xattr_ids;
++ #ifdef CONFIG_SQUASHFS_SSQ
++ 	void *					ssq_shas;
++ #endif
+  };
+  #endif

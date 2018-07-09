@@ -1,0 +1,82 @@
+#!/usr/bin/env perl
+# Create or verify a secure squashfs (ssq) image
+
+use strict;
+use warnings;
+use Digest::SHA;
+
+# verify if -v
+my $verify=0;
+@ARGV && $ARGV[0] eq "-v" and $verify=1, shift;
+
+# input from stdin or named file
+my $input;
+-t 0 or $input=*STDIN;
+@ARGV and (open $input, "<", $ARGV[0] or die "Can't open $ARGV[0]: $!\n");
+$input or die <<'EOT';
+Usage:
+
+    mkssq [image.sq] > image.ssq -- given squashfs image by name or on stdin,
+    write the secure squashfs on stdout (all other output to stderr).
+
+    - or -
+
+    mkssq -v [image.ssq] -- given a secure squashfs image by name or on stdin,
+    verify it is well-formed and write the mount signature on stdout (all other
+    output to stderr).
+
+EOT
+
+my @shas;
+my $signature=Digest::SHA->new("sha256");
+my $blocks=1;
+
+for (my $block=0; $block < $blocks; $block++)
+{
+    # read 4K blocks from image
+    my $data;
+    read($input, $data, 4096) == 4096 or die "Input squashfs image truncated at block $block!\n";
+    # remember SHA256's
+    push @shas, Digest::SHA->new("sha256")->add($data)->digest();
+    if (!$block)
+    {
+        # block 0, extract magic and squashfs size from the superblock
+        my ($magic, $sizehi, $sizelo) = unpack "Vx32VV", $data;
+        $magic != 0x73717368 and die(sprintf "Expected squashfs magic 0x73717368 but got 0x%X, image is invalid\n",$magic);
+        ($sizehi || $sizelo>2**30) and die("Input squashfs image can't exceed 1GB\n");
+        $blocks=($sizelo+4095)>>12; # round up!
+        warn $verify?"Verifying":"Processing"," $sizelo bytes ($blocks blocks)...\n";
+        # include block 0 in the signature
+        $signature->add($data);
+    }
+    print $data unless $verify;
+}
+
+# include metadata in the signature
+$signature->add(@shas);
+
+if ($verify)
+{
+    # Check the sha for each block against the input metadata
+    my @expected;
+    for (my $block=0; $block < $blocks; $block++)
+    {
+        # Image must be multiple of 4K, so we read another block every 128 shas
+        unless ($block % 128)
+        {
+            my $data;
+            read($input, $data, 4096) == 4096 or die "Input secure squashfs image truncated at block ",$blocks+($block/128),"!\n";
+            @expected = unpack "(a32)*", $data;
+        }
+        $expected[$block%128] eq $shas[$block] or die "Expected block $block SHA256 ",(unpack "H*",$expected[$block%128]),", but got ",(unpack "H*",$shas[$block]),"\n";
+    }
+    warn "Secure squashfs looks good!\n";
+    # write unadorned signature to stdout
+    print $signature->hexdigest(),"\n";
+} else
+{
+    # write the metadata to stdout, padded to 4K
+    print pack "(a4096)*", unpack "(a4096)*", pack "(a*)*", @shas;
+    warn "Secure squashfs mount signature is ",$signature->hexdigest(),"\n";
+}
+exit 0
